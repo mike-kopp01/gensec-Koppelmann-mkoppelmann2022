@@ -1,7 +1,25 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#     "arxiv>=2.1,<3",
+#     "ddgs>=9.16.0",
+#     "dnspython>=2.8.0",
+#     "httpx>=0.28.1",
+#     "langchain>=1.4.3",
+#     "langchain-community>=0.4.2",
+#     "langchain-core>=1.6.6",
+#     "langchain-experimental>=0.4.2",
+#     "langchain-google-genai>=4.4.0",
+#     "langgraph>=1.2.13",
+# ]
+# ///
 """Security Recon Assistant: a LangGraph agent for Homework 3.
 
 The agent answers security-research questions using a mix of built-in and
 custom LangChain tools, and executes Python code only after a human approves it.
+
+This file is self-contained: the block above lists its dependencies, so
+``uv run app.py`` installs them automatically, even outside the repository.
 
 Configuration is read from environment variables (never hard-coded):
     GOOGLE_API_KEY  -- Gemini API key
