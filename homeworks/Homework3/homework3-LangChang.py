@@ -1,5 +1,5 @@
 """Security Recon Assistant: a LangGraph agent for Homework 3.
-
+Michael Koppelmann Z23649817
 The agent answers security-research questions using a mix of built-in and
 custom LangChain tools, and executes Python code only after a human approves it.
 
