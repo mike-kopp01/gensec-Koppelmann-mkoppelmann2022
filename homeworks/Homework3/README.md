@@ -58,6 +58,13 @@ uv sync
 uv run app.py
 ```
 
+### VS Code
+
+1. Open this folder in VS Code: `code homeworks/Homework3`. Install the recommended Python extensions if prompted.
+2. Run `uv sync` once to create `.venv`. VS Code picks it up as the interpreter (`.vscode/settings.json`).
+3. Copy `.env.example` to `.env` and fill in your key. `.env` is gitignored.
+4. Press **F5** (or **Run and Debug → Run Security Recon Assistant**). The agent runs in the integrated terminal, so you can type prompts and approvals there.
+
 ## Example prompts
 
 - `What is CVE-2021-44228 and how severe is it?`: uses `cve_lookup`
