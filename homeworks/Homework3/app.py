@@ -143,8 +143,8 @@ def build_llm():
     """Create the Gemini chat model with all tools bound.
 
     Reads GOOGLE_MODEL from the environment; GOOGLE_API_KEY is read
-    automatically by ChatGoogleGenerativeAI. Exits with a message if the
-    model name is missing.
+    automatically by ChatGoogleGenerativeAI. Exits with a message if either
+    variable is missing.
     """
     from langchain_google_genai import ChatGoogleGenerativeAI
 
