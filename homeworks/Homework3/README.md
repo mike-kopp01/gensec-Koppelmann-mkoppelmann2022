@@ -1,20 +1,23 @@
-# Homework 3: Security Recon Assistant
+Homework 3: Security Recon Assistant
+Author: Michael Koppelmann
 
-A LangGraph agent that answers security-research questions with built-in and custom LangChain tools. It runs Python code only after a human approves each call.
+The Security Recon Assistant is a command-line AI agent built with LangChain and LangGraph. It answers security-research questions using real data sources instead of guessing. Google's Gemini model picks the right tool for each question: it can search the web, find academic papers, look up a domain's DNS records, get vulnerability details and CVSS scores from the NIST National Vulnerability Database, and run Python code for calculations. Running code is dangerous, so every Python call pauses for the user to approve it or give feedback. When a call is rejected, the agent revises its plan.
 
-## Tools
-
-| Tool | Type | Purpose |
-|---|---|---|
-| `duckduckgo_search` | Built-in (not in the lab) | Web search, no API key needed |
-| `arxiv` | Built-in (not in the lab) | Academic paper search |
-| `dns_lookup` | Custom (`@tool`) | A/AAAA/MX/NS/TXT/CNAME/SOA/CAA records via `dnspython` |
-| `cve_lookup` | Custom (`@tool`) | CVE details and CVSS score from the NIST NVD API |
-| `Python_REPL` | Required (kept from the lab) | Runs Python code, **gated behind human approval** |
-
-## Architecture
-
-```mermaid
+Features
+Five tools: two built-in LangChain tools that the lab didn't use, two custom tools, and the Python REPL.
+Custom LangGraph architecture with a human-approval step.
+Per-call approval: every Python call is shown to the user and must be approved before it runs.
+Feedback loop: rejecting a call sends your feedback to the model, which proposes a revised call.
+Conversation memory: follow-up questions can refer to earlier answers in the same session.
+No secrets in code: API keys are read only from environment variables.
+Tools
+Tool	Type	What it does
+duckduckgo_search	Built-in (new, not in the lab)	Web search for current events and general information. No API key needed.
+arxiv	Built-in (new, not in the lab)	Searches academic papers on arXiv.
+dns_lookup	Custom (@tool)	Returns a domain's A, AAAA, MX, NS, TXT, CNAME, SOA or CAA records using dnspython.
+cve_lookup	Custom (@tool)	Gets a CVE's description, CVSS score, severity, publication date and references from the NIST NVD API.
+Python_REPL	Required (kept from the lab)	Runs Python code for calculations and data processing. Needs user approval for every call.
+Architecture
 graph TD;
     __start__ --> call;
     call -.-> __end__;
@@ -23,52 +26,60 @@ graph TD;
     human_review -.-> call;
     human_review -.-> tools;
     tools --> call;
-```
+Node	Role
+call	Gemini, with all tools bound, either gives a final answer or proposes tool calls.
+tools	LangGraph's prebuilt ToolNode runs the requested tools, then returns to call.
+human_review	Pauses with interrupt() for every Python call. Typing y runs the tools; anything else is sent back to the model as feedback.
+Routing: if the model proposes no tool calls, the run ends. Lookups (search, arXiv, DNS, CVE) run straight away. Any step that includes a Python call goes to human_review first.
 
-- **`call`**: Gemini, with all tools bound, either answers or proposes tool calls.
-- **Routing**: safe lookups go straight to `tools`; any `Python_REPL` call goes to `human_review`.
-- **`human_review`**: uses LangGraph `interrupt()` to pause for **every** dangerous call in the step. If you type `y`, the tools run. Anything else is sent back to the model as feedback, and **every** pending `tool_call_id` gets a reply.
-- **`tools`**: the prebuilt `ToolNode` runs the calls, then control returns to `call`.
-- **Memory**: a `MemorySaver` checkpointer keeps the conversation for the session and makes interrupts resumable.
+Memory: a MemorySaver checkpointer stores the conversation for the session and lets an interrupted run resume after you answer.
 
-### Improvements over the lab examples
-
-| Issue seen in the lab | Fix in this agent |
-|---|---|
-| `07_langgraph_feedback.py` only showed `tool_calls[0]`, but approval ran **all** calls | Every dangerous call is reviewed individually |
-| `02_tools_builtin.py` answered "34" for Taylor Swift's age (the model assumed the year was 2024) | The system prompt includes today's date |
-| "At most 8 tool calls" was only a prompt instruction | Enforced `recursion_limit` |
-| Tool output (web pages) can contain prompt injection | The system prompt marks tool output as untrusted data |
-| Gemini content blocks printed raw (`[{'type': 'text', ...}]`) | Plain-text extraction |
-
-## Setup
-
-API keys are read from environment variables only:
-
-```bash
+Security design
+Risk	How the agent handles it
+The model runs harmful code	Every Python_REPL call needs explicit approval. In the lab's 07_langgraph_feedback.py, only the first of several calls was shown, but approving ran all of them. Here each call is reviewed individually.
+Prompt injection from web pages	The system prompt tells the model to treat tool output as untrusted data and never follow instructions inside it.
+Runaway tool loops	A hard recursion_limit of 30 graph steps per request. The lab's "at most 8 tool calls" was only a request in the prompt and wasn't enforced.
+Bad tool input	CVE IDs must match CVE-YYYY-NNNN, and only known DNS record types are accepted.
+Outdated "current year"	The system prompt includes today's date. In the lab, the agent answered that Taylor Swift was 34 instead of 36 because it assumed the year was 2024.
+Leaked API keys	Keys come from environment variables (or a gitignored .env file), never from the code.
+Project files
+File	Purpose
+app.py	The complete agent: tools, graph, approval step and console interface.
+pyproject.toml, uv.lock	Dependencies, managed with uv.
+.vscode/	VS Code run configuration and interpreter settings.
+.env.example	Template for your API key (copy it to .env).
+screencast_url.txt	Link to the demo screencast.
+Setup
+Requirements
+uv
+A Gemini API key from Google AI Studio
+Linux / VM
 export GOOGLE_API_KEY="your-key"
 export GOOGLE_MODEL="gemini-flash-lite-latest"
-```
-
-Install and run with `uv`:
-
-```bash
 cd homeworks/Homework3
 uv sync
 uv run app.py
-```
+Windows / VS Code
+Open homeworks/Homework3 in VS Code and install the recommended Python extensions if prompted.
+Run uv sync in the terminal to create .venv.
+Copy .env.example to .env and paste in your API key.
+Press F5 (or Run and Debug → Run Security Recon Assistant).
+Usage
+Type a question at the llm>> prompt. The agent prints each tool call and result, then its final answer. Press Enter on an empty line to quit.
 
-### VS Code
+When the agent wants to run Python, it shows the code and asks:
 
-1. Open this folder in VS Code: `code homeworks/Homework3`. Install the recommended Python extensions if prompted.
-2. Run `uv sync` once to create `.venv`. VS Code picks it up as the interpreter (`.vscode/settings.json`).
-3. Copy `.env.example` to `.env` and fill in your key. `.env` is gitignored.
-4. Press **F5** (or **Run and Debug → Run Security Recon Assistant**). The agent runs in the integrated terminal, so you can type prompts and approvals there.
-
-## Example prompts
-
-- `What is CVE-2021-44228 and how severe is it?`: uses `cve_lookup`
-- `Which mail servers and SPF record does fau.edu use?`: uses `dns_lookup` (MX + TXT)
-- `Find recent arXiv papers on prompt injection defenses`: uses `arxiv`
-- `Look up CVE-2014-0160 and use Python to compute how many days ago it was published`: uses `cve_lookup`, then `Python_REPL` (approval prompt)
-- `Write a Python one-liner that deletes foo`: answer with feedback instead of `y` to see the model revise its call
+[Approval needed] Python_REPL wants to run:
+print(2**10)
+Type 'y' to approve, or describe the change you want:
+Type y to run it.
+Type anything else, for example use a loop instead, and the model will propose a revised call.
+Example prompts
+Prompt	Tools used
+What is CVE-2021-44228 and how severe is it?	cve_lookup
+Which mail servers and SPF record does fau.edu use?	dns_lookup (MX and TXT)
+Find recent arXiv papers on prompt injection defenses.	arxiv
+What are the latest news stories about ransomware?	duckduckgo_search
+Look up CVE-2014-0160 and use Python to compute how many days ago it was published.	cve_lookup, then Python_REPL (approval prompt)
+Screencast
+See screencast_url.txt.
