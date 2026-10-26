@@ -19,8 +19,6 @@ A deliberately naive IT-helpdesk agent is attacked, then hardened and re-tested.
 | `agent_pentest.py` | The vulnerable helpdesk agent + the two APE attacks |
 | `agent_secure.py` | The hardened agent (same tools, with defenses) |
 | `test_guards.py` | Offline proof of the code-level defenses (no API calls) |
-| `pentest_writeup.md` | Full write-up, attacks mapped to the APE taxonomy |
-| `homework_APE_pentest.pdf` | Submission PDF in the required per-attack format |
 
 ---
 
