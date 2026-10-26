@@ -24,22 +24,6 @@ A deliberately naive IT-helpdesk agent is attacked, then hardened and re-tested.
 
 ---
 
-## Requirements
-
-- Python 3.10+
-- Packages: `langchain-core`, `langchain-google-genai`
-- A Google Gemini API key (https://aistudio.google.com/apikey)
-
-```bash
-python3 -m venv env && source env/bin/activate
-pip install langchain-core langchain-google-genai
-export GOOGLE_API_KEY="your-key-here"
-```
-
-On Windows PowerShell, set the key with `$env:GOOGLE_API_KEY="your-key-here"`.
-
----
-
 ## How to run
 
 Each script takes a scenario argument: `baseline`, `attack1`, `attack2`, or `all`.
