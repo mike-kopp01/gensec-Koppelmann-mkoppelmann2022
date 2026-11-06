@@ -46,20 +46,31 @@ KEYWORD = "FUZZ"
 
 
 def apply_fuzz(template, word):
+    """Replace the FUZZ placeholder in a string template with a payload word.
+
+    Returns None when the template is absent so callers can treat missing values
+    consistently before building a request.
+    """
     return None if template is None else template.replace(KEYWORD, word)
 
 
 def _build_opener(follow: bool):
+    """Create a urllib opener with optional redirect following disabled."""
     handlers = []
     if not follow:
         class _NoRedirect(urllib.request.HTTPRedirectHandler):
+            """Prevent HTTP redirects so the raw response can be inspected."""
+
             def redirect_request(self, *a, **k):
+                """Return None to disable redirect handling for this request."""
                 return None
+
         handlers.append(_NoRedirect())
     return urllib.request.build_opener(*handlers)
 
 
 def fuzz_one(opener, url_t, word, method, headers_t, data_t, timeout) -> dict:
+    """Issue one HTTP request for a single payload and return response metrics."""
     url = apply_fuzz(url_t, word)
     headers = {k: apply_fuzz(v, word) for k, v in headers_t.items()}
     data = apply_fuzz(data_t, word)
@@ -82,11 +93,15 @@ def fuzz_one(opener, url_t, word, method, headers_t, data_t, timeout) -> dict:
 
 
 def _intset(spec):
+    """Parse a comma-separated filter spec into a set of integers."""
     return {int(p.strip()) for p in spec.split(",") if p.strip()} if spec else set()
 
 
 class Filters:
+    """Represent the include/exclude rules used to decide which responses print."""
+
     def __init__(self, args):
+        """Initialize the filter sets from parsed command-line arguments."""
         self.sc, self.hc = _intset(args.sc), _intset(args.hc)
         self.sl, self.hl = _intset(args.sl), _intset(args.hl)
         self.sw, self.hw = _intset(args.sw), _intset(args.hw)
@@ -96,9 +111,11 @@ class Filters:
 
     @property
     def has_show(self):
+        """Return True when any positive show filter is active."""
         return any([self.sc, self.sl, self.sw, self.sh])
 
     def visible(self, r):
+        """Return True if a response matches the currently active filters."""
         if r["error"] is not None:
             return False
         if self.sc and r["code"] not in self.sc:
@@ -121,6 +138,7 @@ class Filters:
 
 
 def calibrate(opener, url_t, method, headers_t, data_t, timeout):
+    """Probe the target once to detect the normal response fingerprint."""
     if (KEYWORD not in (url_t or "") and KEYWORD not in (data_t or "")
             and not any(KEYWORD in v for v in headers_t.values())):
         return None
@@ -131,10 +149,12 @@ def calibrate(opener, url_t, method, headers_t, data_t, timeout):
 
 def run_fuzz(url_t, words, method="GET", headers_t=None, data_t=None,
              timeout=10.0, concurrency=30, delay=0.0, follow=False) -> list[dict]:
+    """Send the supplied wordlist to the target URL concurrently and return results."""
     headers_t = headers_t or {}
     opener = _build_opener(follow)
 
     def task(word):
+        """Handle one payload in a worker thread and return its response summary."""
         if delay:
             time.sleep(delay)
         return fuzz_one(opener, url_t, word, method, headers_t, data_t, timeout)
@@ -144,6 +164,7 @@ def run_fuzz(url_t, words, method="GET", headers_t=None, data_t=None,
 
 
 def _print_table(results, filters):
+    """Print the summary table for a fuzzing run, with filtering applied."""
     print(f"\n{'RESPONSE':<10}{'LINES':<8}{'WORDS':<8}{'CHARS':<9}{'MS':<7}PAYLOAD")
     print("-" * 70)
     shown = 0
@@ -161,11 +182,14 @@ def _print_table(results, filters):
 
 
 class _Args:
+    """Simple namespace used by self-tests to emulate parsed arguments."""
+
     sc = hc = sl = hl = sw = hw = sh = hh = None
     no_autofilter = False
 
 
 def selftest() -> int:
+    """Run a local end-to-end check of the fuzzer against a temporary server."""
     import threading
     from http.server import BaseHTTPRequestHandler, HTTPServer
     passed = failed = 0
@@ -241,6 +265,7 @@ def _resolve_path(path: str):
 
 
 def main(argv=None) -> int:
+    """Parse CLI arguments and execute the requested fuzzing workflow."""
     ap = argparse.ArgumentParser(description="wfuzz-style HTTP fuzzer")
     ap.add_argument("url", nargs="?", help="target URL; put FUZZ where the payload goes")
     ap.add_argument("-w", "--wordlist")
@@ -315,7 +340,7 @@ def main(argv=None) -> int:
 
 
 def menu() -> int:
-    """Interactive menu shown when the script is run with no arguments."""
+    """Display a simple interactive menu when the script is launched without args."""
     print("=" * 56)
     print("  web_fuzzer - interactive menu")
     print("  AUTHORIZED USE ONLY: fuzz only apps you may test.")
@@ -351,5 +376,6 @@ def menu() -> int:
 
 
 if __name__ == "__main__":
+    """Run the interactive menu when no arguments are supplied; otherwise start CLI mode."""
     # No CLI arguments -> friendly menu; otherwise normal argparse handling.
     raise SystemExit(menu() if len(sys.argv) == 1 else main())
