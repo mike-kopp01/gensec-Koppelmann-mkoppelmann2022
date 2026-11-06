@@ -59,6 +59,7 @@ TOP_PORTS = [
 # -------------------------------------------------------------------------
 
 def parse_ports(spec: str) -> list[int]:
+    """Parse a comma/Hyphen port list such as ``22,80,100-200`` into ints."""
     out: set[int] = set()
     for part in spec.split(","):
         part = part.strip()
@@ -78,6 +79,7 @@ def parse_ports(spec: str) -> list[int]:
 
 
 def parse_targets(spec: str) -> list[str]:
+    """Expand a target spec into explicit hosts from CIDR, ranges, or CSV input."""
     out, seen = [], set()
 
     def add(h):
@@ -108,6 +110,7 @@ def parse_targets(spec: str) -> list[str]:
 # -------------------------------------------------------------------------
 
 async def _read_banner(reader, writer, host, port, timeout):
+    """Read a short banner from a listening service, optionally sending a HEAD probe."""
     try:
         if port in HTTP_PORTS:
             writer.write(f"HEAD / HTTP/1.0\r\nHost: {host}\r\n\r\n".encode())
@@ -122,6 +125,7 @@ async def _read_banner(reader, writer, host, port, timeout):
 
 
 async def scan_port(host, port, timeout=1.0, sem=None, banner=False) -> dict:
+    """Scan a single TCP port and return whether it appears open and what service it serves."""
     sem = sem or asyncio.Semaphore(1)
     service = SERVICES.get(port, "")
     async with sem:
@@ -147,6 +151,7 @@ async def scan_port(host, port, timeout=1.0, sem=None, banner=False) -> dict:
 
 
 async def scan_udp_port(host, port, timeout=2.0, sem=None) -> dict:
+    """Probe a single UDP port and classify it as open, closed, or filtered."""
     sem = sem or asyncio.Semaphore(1)
     service = SERVICES.get(port, "")
     async with sem:
@@ -172,6 +177,7 @@ async def scan_udp_port(host, port, timeout=2.0, sem=None) -> dict:
 
 async def scan_host(host, ports, timeout=1.0, concurrency=200, banner=False,
                     udp=False) -> dict:
+    """Scan every supplied port on a single host and return a structured result."""
     sem = asyncio.Semaphore(concurrency)
     tasks = ([scan_udp_port(host, p, timeout, sem) for p in ports] if udp
              else [scan_port(host, p, timeout, sem, banner) for p in ports])
@@ -181,6 +187,7 @@ async def scan_host(host, ports, timeout=1.0, concurrency=200, banner=False,
 
 
 async def scan_targets(targets, ports, **kw) -> list[dict]:
+    """Scan a list of hosts and aggregate the per-host results."""
     return [await scan_host(t, ports, **kw) for t in targets]
 
 
@@ -189,6 +196,7 @@ async def scan_targets(targets, ports, **kw) -> list[dict]:
 # -------------------------------------------------------------------------
 
 def _print_host(h, open_only):
+    """Render a single host's scan results in a compact human-readable table."""
     shown = [p for p in h["ports"] if not open_only or p["state"].startswith("open")]
     up = sum(1 for p in h["ports"] if p["state"].startswith("open"))
     print(f"\nScan report for {h['host']}  ({up} open)")
@@ -202,6 +210,7 @@ def _print_host(h, open_only):
 
 
 def selftest() -> int:
+    """Run a small local self-verification without needing external network access."""
     passed = failed = 0
 
     def check(name, cond):
@@ -239,6 +248,7 @@ def selftest() -> int:
 
 
 def main(argv=None) -> int:
+    """Parse CLI arguments and perform the requested scan across one or more targets."""
     ap = argparse.ArgumentParser(description="nmap-style async TCP/UDP port scanner")
     ap.add_argument("targets", nargs="?", help="host / IP / CIDR / a.b.c.x-y / comma list")
     ap.add_argument("-p", "--ports")
@@ -324,5 +334,6 @@ def menu() -> int:
 
 
 if __name__ == "__main__":
+    """Launch the interactive menu with no args or run CLI mode with provided arguments."""
     # No CLI arguments -> friendly menu; otherwise normal argparse handling.
     raise SystemExit(menu() if len(sys.argv) == 1 else main())
